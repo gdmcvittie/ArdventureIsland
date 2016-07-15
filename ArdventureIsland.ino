@@ -33,7 +33,8 @@ int GAME_STATE = 0;
 int SECS_PLAYED = 0;
 
 //health
-int HEARTS = 3;
+int MAX_HEARTS = 5;
+int HEARTS = 5;
 int LIVES = 3;
 int DING_EVERY_X_FRAMES = 120;
 
@@ -53,11 +54,27 @@ int player_y = 40;
 
 //rock position
 int rock_x = 160;
-int rock_y = 40;
+int rock_y = 48;
+
+//spikes position
+int spikes_x = 240;
+int spikes_y = 52;
+
+//spider position
+int spider_x = 500;
+int spider_y = 2;
+
+//boulder position
+int boulder_x = 350;
+int boulder_y = 2;
+
+//snail position
+int snail_x = 450;
+int snail_y = 48;
 
 //egg position
-int egg_x = random(128,360);
-int egg_y = 40;
+int egg_x = 300;
+int egg_y = 48;
 
 //scrolling
 int bg_scroll = 0;
@@ -90,6 +107,7 @@ bool SNAIL_DEAD = false;
 bool BEE_DEAD = false;
 bool SPIDER_DEAD = false;
 bool SPIDER_IS_DOWN = false;
+bool BOULDER_BOUNCED = false;
 
 
 /*
@@ -106,6 +124,7 @@ void setup() {
   arduboy.systemButtons();
   arduboy.audio.begin();
   arduboy.setFrameRate(FPS); 
+  arduboy.initRandomSeed();
 }
 
 void loop() {
@@ -118,6 +137,12 @@ void loop() {
   //build level
   buildLevel();
 }
+
+
+
+
+
+
 
 /*
  * build level
@@ -144,7 +169,6 @@ void buildLevel(){
     case 1:
       SOUND_PLAYED = false;
       arduboy.drawSlowXYBitmap(0,0,the_level_picker, 128, 64, WHITE);
-      trace("SELECT AN ISLAND");
       //check for level completion
       if(LEVEL_1_COMPLETE){
         arduboy.drawSlowXYBitmap(5,5, the_level_done, 32, 32, WHITE);
@@ -156,9 +180,11 @@ void buildLevel(){
         arduboy.drawSlowXYBitmap(90,5, the_level_done, 32, 32, WHITE);
       }
       //add boxes for level picker
-      if(SELECTED_LEVEL == 1){
+      if(SELECTED_LEVEL == 0){
+        trace("SELECT AN ISLAND");
+      }else if(SELECTED_LEVEL == 1){
         arduboy.drawRect(5, 5, 32, 32, 0);    
-        trace("THE CAVES OF DOOOOOOM");
+        trace("CAVERNS OF DOOOOOOOOM");
       } else if(SELECTED_LEVEL == 2){
         arduboy.drawRect(52, 18, 32, 32, 0);
         trace("FOREST OF DESTRUCTION");
@@ -187,9 +213,28 @@ void buildLevel(){
       bg_scroll--;
       updateScrolling();
       //add hud
-      addHud(true,true);
+      addHud();
       //add player
       addPlayer();
+      //add goodies and baddies
+      addItems();
+      //timed death
+      timedDeath();
+    break;
+
+
+
+
+
+    //game over
+    case 5: 
+      arduboy.drawSlowXYBitmap(48,8,the_game_over,32,32,WHITE);
+      handleButtons();
+      arduboy.display();
+      if(!SOUND_PLAYED){
+        SOUND_PLAYED = true;
+        soundGameOver();
+      }
     break;
   }
 
@@ -197,6 +242,11 @@ void buildLevel(){
   //handle button inputs
   handleButtons();
 }
+
+
+
+
+
 
 
 
@@ -220,7 +270,7 @@ void handleButtons(){
       }
       if ( arduboy.pressed(B_BUTTON) ){
         LIVES = 3;
-        HEARTS = 3;
+        HEARTS = MAX_HEARTS;
         SCORE = 0;
         SECS_PLAYED = 0;
         GAME_STATE = 1;
@@ -265,14 +315,34 @@ void handleButtons(){
           }
         }
         break;
+
+
+
+        //game play
+        case 2: 
+          if( arduboy.pressed(RIGHT_BUTTON)) {
+            WALKING = true;
+            //scroll
+            bg_scroll--;
+            updateScrolling();
+          } else {
+            WALKING = false;
+          }
+        break;
   }
 }
+
+
+
+
+
+
 
 
 /*
  * add hud
  */
-void addHud(bool incTime, bool incScore){
+void addHud(){
   arduboy.fillRect(0,0,128,hud_offset,1);
   //add hearts
   for(int i = 0; i < HEARTS; i++){
@@ -286,17 +356,15 @@ void addHud(bool incTime, bool incScore){
     int16_t livesy = 1;
     arduboy.drawSlowXYBitmap(livesx,livesy,the_lives,8,8,BLACK);
   }
-  //add time
-  if(incTime){
-    arduboy.setCursor(34,1);
-    arduboy.print(SECS_PLAYED);
-  }
   //add score
-  if(incScore){
-    arduboy.setCursor(64,1);
-    arduboy.print(SCORE);
-  }
+  arduboy.setCursor(44,1);
+  arduboy.print(SCORE);
 }
+
+
+
+
+
 
 
 
@@ -362,6 +430,11 @@ void updateScrolling(){
 
 
 
+
+
+
+
+
 /*
  * draw the player
  */
@@ -418,6 +491,210 @@ void addPlayer(){
   }  
  }
 
+
+
+
+
+
+
+
+
+/*
+ * goodies and baddies
+ */
+void addItems(){
+  arduboy.initRandomSeed();
+  switch(CURRENT_LEVEL){
+    //level 1
+    case 1:
+      //goodies
+      doEggs();
+      //baddies
+      doRocks();
+      doSpikes();
+      doSpiders();
+      doBoulders();
+      doSnails();
+    break;
+
+    //level 2
+    case 2:
+      doRocks();
+    break;
+
+    //level 3
+    case 3:
+      doRocks();
+    break;
+  }
+}
+
+
+
+
+
+/*
+ * goodies
+ */
+void doEggs(){
+  if(egg_x == -8){
+    egg_x = random(128,350);
+  }
+  egg_x--;
+  arduboy.drawBitmap(egg_x,egg_y,the_egg,8,8,WHITE);
+  return;
+}
+
+
+
+
+/*
+ * baddies
+ */
+//rocks
+void doRocks(){
+  if(rock_x == -8){
+    rock_x = random(128,700);
+  }
+  rock_x--;
+  arduboy.drawBitmap(rock_x,rock_y,the_rock,8,8,WHITE);
+  return;
+}
+
+//spikes
+void doSpikes(){
+  if(spikes_x == -8){
+    spikes_x = random(200,500);
+  }
+  spikes_x--;
+  arduboy.drawBitmap(spikes_x,spikes_y,the_spikes,8,8,WHITE);
+  return;
+}
+
+//snails
+void doSnails(){
+  if(snail_x == -8){
+    snail_x = random(275,750);
+  }
+  snail_x--;
+  arduboy.drawBitmap(snail_x,snail_y,the_snail,8,8,WHITE);
+  return;
+}
+
+//spider
+void doSpiders(){
+  if(spider_x > 0){
+    spider_x--;
+    //spider goes down
+    if(spider_y < 36 && !SPIDER_IS_DOWN){
+      spider_y++;
+    } 
+    //spider is down
+    if(spider_y == 36){
+      SPIDER_IS_DOWN = true;
+    }
+    //spider goes up
+    if(spider_y > 2 && SPIDER_IS_DOWN){
+      spider_y--;
+    }
+    //spider is up
+    if(spider_y == 2){
+      SPIDER_IS_DOWN = false;
+    }
+    
+  } else {
+    spider_x = random(128,600);
+    SPIDER_DEAD = false;
+    spider_y = 2;
+  }
+  arduboy.drawBitmap(spider_x,spider_y,the_spider,8,8,WHITE);
+}
+
+//boulders
+void doBoulders(){
+  if(boulder_x > 0){
+    if(arduboy.everyXFrames(2)){
+      boulder_x = boulder_x-3;
+    }
+    //spider goes down
+    if(boulder_y < 42 && !BOULDER_BOUNCED){
+      boulder_y++;
+    } 
+    //spider is down
+    if(boulder_y == 42){
+      BOULDER_BOUNCED = true;
+    }
+    //spider goes up
+    if(boulder_y > 30 && BOULDER_BOUNCED){
+      if(arduboy.everyXFrames(3)){
+        boulder_y--;
+      }      
+    }
+    //spider is up
+    if(boulder_y == 30){
+      BOULDER_BOUNCED = false;
+    }
+    
+  } else {
+    boulder_x = random(300,800);
+    BOULDER_BOUNCED = false;
+    boulder_y = 2;
+  }
+  arduboy.drawBitmap(boulder_x,boulder_y,the_boulder,16,16,WHITE);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * timed death
+ */
+void timedDeath(){
+  if(GAME_STATE == 2){
+    if(arduboy.everyXFrames(DING_EVERY_X_FRAMES)){
+      dingHealth();
+    }
+    //add to seconds played
+    if(arduboy.everyXFrames(60)){
+      SECS_PLAYED++;   
+    }
+  }
+}
+
+
+
+
+
+
+/*
+ * ding the health
+ */
+void dingHealth(){
+  if(HEARTS > 0){
+    HEARTS--;
+  }
+  if(HEARTS == 0){
+    if(LIVES == 0){
+      //game over
+      GAME_STATE = 5;
+    } else {
+      LIVES--;
+      HEARTS = MAX_HEARTS;
+      soundBad();
+    }
+  }
+}
 
 void trace(String the_string){
   arduboy.setCursor(0,56);
