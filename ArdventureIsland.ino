@@ -58,6 +58,10 @@ int hud_offset = 11;
 int player_x = 32;
 int player_y = 41;
 
+//platform position
+int platform_x = 128;
+int platform_y = 42;
+
 //boss position
 int boss_x = 80;
 int boss_y = 16;
@@ -81,6 +85,10 @@ int bee_y = 24;
 //boulder position
 int boulder_x = 350;
 int boulder_y = 2;
+
+//bird position
+int bird_x = 350;
+int bird_y = 2;
 
 //snail position
 int snail_x = 450;
@@ -137,6 +145,7 @@ bool BEE_DEAD = false;
 bool SPIDER_DEAD = false;
 bool SPIDER_IS_DOWN = false;
 bool BOULDER_BOUNCED = false;
+bool BIRD_BOUNCED = false;
 bool BOSS_HIT = false;
 
 //misc
@@ -622,6 +631,14 @@ void addPlayer(){
     if(HAS_SKATE){
       player.frame = 3;
     }
+
+    //are we on a platform?
+    if((player_x+16) >= platform_x && (player_x+16) < (platform_x+32)){
+      if((player_y+16) >= platform_y && (player_y+16) < (platform_y+8)){
+        //on the platform
+        player_y = platform_y-16;
+      }
+    }
   
     //draw the player
     sprites.draw(player);
@@ -692,18 +709,27 @@ void addItems(){
 
     //level 2
     case 2:
-      //goodies
-      doEggs();
-      doFruits();
-      //baddies
-      doRocks();
-      doBees(); //hehehe
-      doSpiders();
+      if(SCROLLING){
+        //goodies
+        doEggs();
+        doFruits();
+        //baddies
+        doRocks();
+        doBees(); //hehehe
+        doSpiders();
+        doSnails();
+        doBirds();
+        //platform
+        doPlatform();
+      }
+      doHammer();
     break;
 
     //level 3
     case 3:
-      doRocks();
+      if(SCROLLING){
+        doRocks();
+      }
     break;
   }
 }
@@ -855,7 +881,55 @@ void doBoulders(){
   arduboy.drawBitmap(boulder_x,boulder_y,the_boulder,16,16,WHITE);
 }
 
+//birds
+void doBirds(){
+  if(bird_x > 0){
+    if(arduboy.everyXFrames(2)){
+      bird_x = bird_x-3;
+    }
+    //spider goes down
+    if(bird_y < 42 && !BIRD_BOUNCED){
+      bird_y++;
+    } 
+    //spider is down
+    if(bird_y == 42){
+      BIRD_BOUNCED = true;
+    }
+    //spider goes up
+    if(bird_y > 30 && BIRD_BOUNCED){
+      if(arduboy.everyXFrames(3)){
+        bird_y--;
+      }      
+    }
+    //spider is up
+    if(bird_y == 30){
+      BIRD_BOUNCED = false;
+    }
+    
+  } else {
+    bird_x = random(300,800);
+    BIRD_BOUNCED = false;
+    bird_y = 2;
+  }
+  arduboy.drawBitmap(bird_x,bird_y,the_bird,16,16,WHITE);
+}
 
+//platform
+void doPlatform(){
+  switch(CURRENT_LEVEL){
+    case 2:
+      if(arduboy.everyXFrames(2)){
+        if(platform_x == -32){
+          platform_x = random(128,600);
+          platform_y = random(38,42);
+        }
+        platform_x--;
+      }
+      arduboy.drawBitmap(platform_x,platform_y,the_level2_platform,32,8,WHITE);
+    break;
+  }
+  
+}
 
 
 
@@ -942,6 +1016,17 @@ void handleCollisions(){
       }
     }
 
+    //hit  bird
+    if( (player_x + 10) >= bird_x && (player_x+10) <= (bird_x+20)){
+      if( (player_y+10) >= bird_y && (player_x+10) <= (bird_y+16) ){
+        player.frame = 5;
+        WALKING = false;
+        FIRING = false;
+        delay(100);
+        dingHealth();
+      }
+    }
+
     //give a hammer or skateboard (hit egg)
     if( (player_x + 8) == egg_x || player_x == egg_x ){
       if( (player_y+10) >= egg_y){
@@ -979,16 +1064,33 @@ void handleCollisions(){
         if( (hammer_y+10) >= (snail_y-10) && (hammer_y+10) <= (snail_y+20)){
           snail_x = -7;
           soundHit();
+          resetHammer();
         }
       }
       //bees
-      if( (hammer_x+10) == (bee_x-10)){
-        if( (hammer_y+10) >= bee_y ){
+      if( (hammer_x+10) >= (bee_x-10) && (hammer_x+10) <= (bee_x+20)){
+        if( (hammer_y+10) >= (bee_y-10) && (hammer_y+10) <= (bee_y+20) ){
           bee_x = -7;
           soundHit();
+          resetHammer();
         }
       }
-      
+      //spiders
+      if( (hammer_x+10) >= (spider_x-10) && (hammer_x+10) <= (spider_x+20)){
+        if( (hammer_y+10) >= (spider_y-10) && (hammer_y+10) <= (spider_y+20) ){
+          spider_x = -10;
+          soundHit();
+          resetHammer();
+        }
+      }
+      //birds
+      if( (hammer_x+10) >= (bird_x-16) && (hammer_x+10) <= (bird_x+20)){
+        if( (hammer_y+10) >= (bird_y-10) && (hammer_y+10) <= (bird_y+20) ){
+          bird_x = -10;
+          soundHit();
+          resetHammer();
+        }
+      }
     }
   }//end game state 2
 
@@ -1045,7 +1147,15 @@ void handleCollisions(){
 
 
 
-
+/*
+ * reset hammer
+ */
+void resetHammer(){
+  FIRING = false;
+  hammer_x = player_x;
+  hammer_y = 64;
+  return;
+}
 
 
 
