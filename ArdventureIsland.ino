@@ -21,6 +21,7 @@ int SELECTED_LEVEL = 0;
 int CURRENT_LEVEL = 0;
 int GAME_STATE = 0;
 int GAME_SPEED = 1;
+int LEVEL_LENGTH = 10;
 
 /*
 * 0 = intro
@@ -93,6 +94,10 @@ int bird_y = 2;
 //snail position
 int snail_x = 450;
 int snail_y = 48;
+
+//boss 2 apple position
+int apple_x = 48;
+int apple_y = -16;
 
 //egg position
 int egg_x = 300;
@@ -213,6 +218,8 @@ void buildLevel(){
     //level picker
     case 1:
       SOUND_PLAYED = false;
+      SECS_PLAYED = 0;
+      WALKING = false;
       arduboy.drawSlowXYBitmap(0,0,the_level_picker, 128, 64, WHITE);
       //check for level completion
       if(LEVEL_1_COMPLETE){
@@ -635,8 +642,10 @@ void addPlayer(){
     //are we on a platform?
     if((player_x+16) >= platform_x && (player_x+16) < (platform_x+32)){
       if((player_y+16) >= platform_y && (player_y+16) < (platform_y+8)){
-        //on the platform
-        player_y = platform_y-16;
+        //on the platform (but not in boss mode)
+        if(GAME_STATE!=3){
+          player_y = platform_y-16;
+        }        
       }
     }
   
@@ -671,7 +680,22 @@ void addBoss(){
 
     //level 2 boss
     case 2:
-
+      for(int i=0; i<128; i=i+16){
+        if(i<96){
+          arduboy.drawBitmap(i,16,the_level2_top_tile, 16, 16, WHITE); 
+        }        
+        arduboy.drawBitmap(i,56,the_level2_btm_tile, 16, 16, WHITE);        
+      }
+      boss_x = 96;
+      boss_y = 16;
+      arduboy.drawBitmap(boss_x,boss_y,the_boss2, 32, 40, WHITE);
+      //apples
+      if(apple_y>=64){
+        apple_y = -16;
+        apple_x = random( (player_x-10) , (player_x+20) );
+      }
+      apple_y = apple_y+2;      
+      arduboy.drawBitmap(apple_x,apple_y,the_boss2_apple, 16, 16, WHITE); 
     break;
 
     //level 3 boss
@@ -1091,6 +1115,8 @@ void handleCollisions(){
           resetHammer();
         }
       }
+
+      
     }
   }//end game state 2
 
@@ -1112,6 +1138,10 @@ void handleCollisions(){
               if(CURRENT_LEVEL==1){
                 LEVEL_1_COMPLETE = true;
               }
+              if(CURRENT_LEVEL==2){
+                LEVEL_2_COMPLETE = true;
+              }
+              BOSS_HEALTH = MAX_BOSS_HEALTH;
               GAME_STATE = 1;
               delay(1000);
             }
@@ -1120,6 +1150,16 @@ void handleCollisions(){
               BOSS_HIT = false;
             }
           }
+        }
+      }
+
+      //boss 2 apples
+      if( (hammer_x+10) >= (apple_x-16) && (hammer_x+10) <= (apple_x+20)){
+        if( (hammer_y+10) >= (apple_y-10) && (hammer_y+10) <= (apple_y+20) ){
+          apple_x = random(8,90);
+          apple_y = -16;
+          soundHit();
+          resetHammer();
         }
       }
     }
@@ -1139,6 +1179,22 @@ void handleCollisions(){
         } 
       }
     }
+    //boss 2 apples
+    if( player_x >= apple_x && (player_x+8) <= (apple_x+16) ){
+      if( player_y >= apple_y && player_y <= (apple_y+16) ){
+        if(!PLAYER_HIT){
+          if(arduboy.everyXFrames(2)){
+            PLAYER_HIT = true;
+            if(player_x>8){
+              player_x = player_x-8;
+            }        
+            dingHealth();
+          }
+          
+        } 
+      }
+    }
+    
     
   }//end bosses
     
@@ -1222,21 +1278,21 @@ void checkTime(){
   switch(CURRENT_LEVEL){
     //level 1
     case 1:
-      if(SECS_PLAYED >= 10){
+      if(SECS_PLAYED >= LEVEL_LENGTH){
         doLevelEnd();
       }
     break;
 
     //level 2
     case 2:
-      if(SECS_PLAYED >= 60){
+      if(SECS_PLAYED >= LEVEL_LENGTH){
         doLevelEnd();
       }
     break;
 
     //level 3
     case 3:
-      if(SECS_PLAYED >= 75){
+      if(SECS_PLAYED >= LEVEL_LENGTH){
         doLevelEnd();
       }
     break;
